@@ -187,6 +187,15 @@ private[cluster] class Reachability private (
     }
   }
 
+  def removeObservers(nodes: Set[UniqueAddress]): Reachability = {
+    val newRecords = records.filterNot(r ⇒ nodes(r.observer))
+    if (newRecords.size == records.size) this
+    else {
+      val newVersions = versions -- nodes
+      Reachability(newRecords, newVersions)
+    }
+  }
+
   def status(observer: UniqueAddress, subject: UniqueAddress): ReachabilityStatus =
     observerRows(observer) match {
       case None ⇒ Reachable
