@@ -7,6 +7,7 @@ import scala.annotation.tailrec
 import scala.collection.breakOut
 import scala.util.control.NonFatal
 import akka.stream.stage._
+import akka.stream.Supervision
 
 // TODO:
 // fix jumpback table with keep-going-on-complete ops (we might jump between otherwise isolated execution regions)
@@ -398,8 +399,24 @@ private[akka] class OneBoundedInterpreter(ops: Seq[Stage[_, _]], val forkLimit: 
         state.progress()
       } catch {
         case NonFatal(e) if lastOpFailing != activeOpIndex ⇒
+          if (Debug) printDebug()
           lastOpFailing = activeOpIndex
-          state.fail(e)
+          currentOp.decide(e) match {
+            case Supervision.Stop ⇒
+              println(s"# fail [$activeOpIndex]: $e") // FIXME
+              state.fail(e)
+            case Supervision.Resume ⇒
+              println(s"# resume [$activeOpIndex]: $e") // FIXME
+              // FIXME do we have to keep track of if user called ctx.push and exception was thrown afterwards
+              // FIXME `pull` can also throw
+              state.pull()
+              state.advance()
+            case Supervision.Restart ⇒
+              println(s"# restart [$activeOpIndex]: $e") // FIXME
+              pipeline(activeOpIndex) = pipeline(activeOpIndex).restart(e).asInstanceOf[UntypedOp]
+              state.pull()
+              state.advance()
+          }
       }
     }
 

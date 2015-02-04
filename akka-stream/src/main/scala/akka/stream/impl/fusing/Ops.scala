@@ -7,12 +7,19 @@ import scala.collection.immutable
 import akka.stream.OverflowStrategy
 import akka.stream.impl.FixedSizeBuffer
 import akka.stream.stage._
+import akka.stream.Supervision
 
 /**
  * INTERNAL API
  */
-private[akka] final case class Map[In, Out](f: In ⇒ Out) extends PushStage[In, Out] {
+private[akka] final case class Map[In, Out](f: In ⇒ Out, decider: Supervision.Decider) extends PushStage[In, Out] {
   override def onPush(elem: In, ctx: Context[Out]): Directive = ctx.push(f(elem))
+
+  // FIXME move to PushPullStage
+  override def decide(t: Throwable): Supervision.Directive = decider(t)
+
+  // FIXME new instance not needed for Map, only experimenting now
+  override def restart(t: Throwable): Map[In, Out] = new Map(f, decider)
 }
 
 /**

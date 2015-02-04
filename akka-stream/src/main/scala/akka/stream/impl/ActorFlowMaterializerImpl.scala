@@ -317,7 +317,7 @@ case class ActorFlowMaterializerImpl(
           // Optimizations below
           case noMatch if !optimizations.fusion ⇒ prev
 
-          case Ast.Map(f, _)                    ⇒ fusing.Map(f) :: prev
+          case Ast.Map(f, att)                  ⇒ fusing.Map(f, att.settings(settings).supervisionDecider) :: prev
           case Ast.Filter(p, _)                 ⇒ fusing.Filter(p) :: prev
           case Ast.Drop(n, _)                   ⇒ fusing.Drop(n) :: prev
           case Ast.Take(n, _)                   ⇒ fusing.Take(n) :: prev
@@ -556,7 +556,8 @@ private[akka] object ActorProcessorFactory {
     val settings = materializer.settings // USE THIS TO AVOID CLOSING OVER THE MATERIALIZER BELOW
     op match {
       case Fused(ops, _)              ⇒ ActorInterpreter.props(settings, ops)
-      case Map(f, _)                  ⇒ ActorInterpreter.props(settings, List(fusing.Map(f)))
+      // FIXME this way of grabbing the supervisionDecider feels very inefficient
+      case Map(f, att)                ⇒ ActorInterpreter.props(settings, List(fusing.Map(f, att.settings(settings).supervisionDecider)))
       case Filter(p, _)               ⇒ ActorInterpreter.props(settings, List(fusing.Filter(p)))
       case Drop(n, _)                 ⇒ ActorInterpreter.props(settings, List(fusing.Drop(n)))
       case Take(n, _)                 ⇒ ActorInterpreter.props(settings, List(fusing.Take(n)))

@@ -196,6 +196,7 @@ object ActorFlowMaterializerSettings {
       initialInputBufferSize = config.getInt("initial-input-buffer-size"),
       maxInputBufferSize = config.getInt("max-input-buffer-size"),
       dispatcher = config.getString("dispatcher"),
+      supervisionDecider = Supervision.stoppingDecider,
       subscriptionTimeoutSettings = StreamSubscriptionTimeoutSettings(config),
       fileIODispatcher = config.getString("file-io-dispatcher"),
       debugLogging = config.getBoolean("debug-logging"),
@@ -230,6 +231,7 @@ final case class ActorFlowMaterializerSettings(
   initialInputBufferSize: Int,
   maxInputBufferSize: Int,
   dispatcher: String,
+  supervisionDecider: Supervision.Decider,
   subscriptionTimeoutSettings: StreamSubscriptionTimeoutSettings,
   fileIODispatcher: String, // FIXME Why does this exist?!
   debugLogging: Boolean,
@@ -246,6 +248,10 @@ final case class ActorFlowMaterializerSettings(
 
   def withDispatcher(dispatcher: String): ActorFlowMaterializerSettings =
     copy(dispatcher = dispatcher)
+
+  // FIXME this is scala specific
+  def withSupervisionStrategy(decider: Supervision.Decider): ActorFlowMaterializerSettings =
+    copy(supervisionDecider = decider)
 
   def withDebugLogging(enable: Boolean): ActorFlowMaterializerSettings =
     copy(debugLogging = enable)

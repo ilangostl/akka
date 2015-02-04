@@ -59,7 +59,7 @@ object FlowSpec {
     override def processorForNode[In, Out](op: AstNode, flowName: String, n: Int): (Processor[In, Out], MaterializedMap) = {
       val props = op match {
         case f: Fused          ⇒ Props(new BrokenActorInterpreter(settings, f.ops, brokenMessage))
-        case Map(f, _)         ⇒ Props(new BrokenActorInterpreter(settings, List(fusing.Map(f)), brokenMessage))
+        case Map(f, att)       ⇒ Props(new BrokenActorInterpreter(settings, List(fusing.Map(f, att.settings(settings).supervisionDecider)), brokenMessage))
         case Filter(p, _)      ⇒ Props(new BrokenActorInterpreter(settings, List(fusing.Filter(p)), brokenMessage))
         case Drop(n, _)        ⇒ Props(new BrokenActorInterpreter(settings, List(fusing.Drop(n)), brokenMessage))
         case Take(n, _)        ⇒ Props(new BrokenActorInterpreter(settings, List(fusing.Take(n)), brokenMessage))

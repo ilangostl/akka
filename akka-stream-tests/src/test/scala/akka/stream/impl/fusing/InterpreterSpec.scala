@@ -4,12 +4,16 @@
 package akka.stream.impl.fusing
 
 import scala.util.control.NoStackTrace
+import akka.stream.Supervision
 
 class InterpreterSpec extends InterpreterSpecKit {
+  import Supervision.stoppingDecider
+  import Supervision.resumingDecider
+  import Supervision.restartingDecider
 
   "Interpreter" must {
 
-    "implement map correctly" in new TestSetup(Seq(Map((x: Int) ⇒ x + 1))) {
+    "implement map correctly" in new TestSetup(Seq(Map((x: Int) ⇒ x + 1, stoppingDecider))) {
       lastEvents() should be(Set.empty)
 
       downstream.requestOne()
@@ -29,9 +33,9 @@ class InterpreterSpec extends InterpreterSpecKit {
     }
 
     "implement chain of maps correctly" in new TestSetup(Seq(
-      Map((x: Int) ⇒ x + 1),
-      Map((x: Int) ⇒ x * 2),
-      Map((x: Int) ⇒ x + 1))) {
+      Map((x: Int) ⇒ x + 1, stoppingDecider),
+      Map((x: Int) ⇒ x * 2, stoppingDecider),
+      Map((x: Int) ⇒ x + 1, stoppingDecider))) {
 
       lastEvents() should be(Set.empty)
 
@@ -134,7 +138,7 @@ class InterpreterSpec extends InterpreterSpecKit {
     "implement take inside a chain" in new TestSetup(Seq(
       Filter((x: Int) ⇒ x != 0),
       Take(2),
-      Map((x: Int) ⇒ x + 1))) {
+      Map((x: Int) ⇒ x + 1, stoppingDecider))) {
 
       lastEvents() should be(Set.empty)
 
@@ -439,7 +443,7 @@ class InterpreterSpec extends InterpreterSpecKit {
       override def toString = "TE"
     }
 
-    "handle external failure" in new TestSetup(Seq(Map((x: Int) ⇒ x + 1))) {
+    "handle external failure" in new TestSetup(Seq(Map((x: Int) ⇒ x + 1, stoppingDecider))) {
       lastEvents() should be(Set.empty)
 
       upstream.onError(TE)
@@ -447,7 +451,7 @@ class InterpreterSpec extends InterpreterSpecKit {
 
     }
 
-    "handle failure inside op" in new TestSetup(Seq(Map((x: Int) ⇒ if (x == 0) throw TE else x))) {
+    "report failure when op throws" in new TestSetup(Seq(Map((x: Int) ⇒ if (x == 0) throw TE else x, stoppingDecider))) {
       lastEvents() should be(Set.empty)
 
       downstream.requestOne()
@@ -461,13 +465,34 @@ class InterpreterSpec extends InterpreterSpecKit {
 
       upstream.onNext(0)
       lastEvents() should be(Set(Cancel, OnError(TE)))
-
     }
 
-    "handle failure inside op in middle of the chain" in new TestSetup(Seq(
-      Map((x: Int) ⇒ x + 1),
-      Map((x: Int) ⇒ if (x == 0) throw TE else x),
-      Map((x: Int) ⇒ x + 1))) {
+    "resume when op throws" in new TestSetup(Seq(Map((x: Int) ⇒ if (x == 0) throw TE else x, resumingDecider))) {
+      lastEvents() should be(Set.empty)
+
+      downstream.requestOne()
+      lastEvents() should be(Set(RequestOne))
+
+      upstream.onNext(2)
+      lastEvents() should be(Set(OnNext(2)))
+
+      downstream.requestOne()
+      lastEvents() should be(Set(RequestOne))
+
+      upstream.onNext(0)
+      lastEvents() should be(Set.empty)
+
+      downstream.requestOne()
+      lastEvents() should be(Set(RequestOne))
+
+      upstream.onNext(3)
+      lastEvents() should be(Set(OnNext(3)))
+    }
+
+    "report failure when op throws in middle of the chain" in new TestSetup(Seq(
+      Map((x: Int) ⇒ x + 1, stoppingDecider),
+      Map((x: Int) ⇒ if (x == 0) throw TE else x + 10, stoppingDecider),
+      Map((x: Int) ⇒ x + 100, stoppingDecider))) {
 
       lastEvents() should be(Set.empty)
 
@@ -475,14 +500,39 @@ class InterpreterSpec extends InterpreterSpecKit {
       lastEvents() should be(Set(RequestOne))
 
       upstream.onNext(2)
-      lastEvents() should be(Set(OnNext(4)))
+      lastEvents() should be(Set(OnNext(113)))
 
       downstream.requestOne()
       lastEvents() should be(Set(RequestOne))
 
       upstream.onNext(-1)
       lastEvents() should be(Set(Cancel, OnError(TE)))
+    }
 
+    "resume when op throws in middle of the chain" in new TestSetup(Seq(
+      Map((x: Int) ⇒ x + 1, restartingDecider),
+      Map((x: Int) ⇒ if (x == 0) throw TE else x + 10, restartingDecider),
+      Map((x: Int) ⇒ x + 100, restartingDecider))) {
+
+      lastEvents() should be(Set.empty)
+
+      downstream.requestOne()
+      lastEvents() should be(Set(RequestOne))
+
+      upstream.onNext(2)
+      lastEvents() should be(Set(OnNext(113)))
+
+      downstream.requestOne()
+      lastEvents() should be(Set(RequestOne))
+
+      upstream.onNext(-1)
+      lastEvents() should be(Set.empty)
+
+      downstream.requestOne()
+      lastEvents() should be(Set(RequestOne))
+
+      upstream.onNext(3)
+      lastEvents() should be(Set(OnNext(114)))
     }
 
     "work with keep-going ops" in pending

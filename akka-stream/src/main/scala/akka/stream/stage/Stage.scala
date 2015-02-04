@@ -3,6 +3,8 @@
  */
 package akka.stream.stage
 
+import akka.stream.Supervision
+
 /**
  * General interface for stream transformation.
  *
@@ -84,6 +86,11 @@ private[stream] abstract class AbstractStage[-In, Out, PushD <: Directive, PullD
    * with [[akka.stream.stage.Context#isFinishing]].
    */
   def onUpstreamFailure(cause: Throwable, ctx: Ctx): TerminationDirective = ctx.fail(cause)
+
+  // FIXME name? document!
+  def decide(t: Throwable): Supervision.Directive = Supervision.Stop
+
+  def restart(t: Throwable): Stage[In, Out] = this
 
 }
 
