@@ -25,5 +25,7 @@ addSbtPlugin("com.typesafe.sbt" % "sbt-git" % "0.6.2")
 
 addSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.1.6")
 
+addSbtPlugin("com.typesafe.sbteclipse" % "sbteclipse-plugin" % "3.0.0")
+
 // stats reporting
 libraryDependencies += "com.timgroup" % "java-statsd-client" % "2.0.0"
